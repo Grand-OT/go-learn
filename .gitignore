@@ -1,0 +1,27 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Go build output
+/build/
+bin/
+
+# IDE files
+.vscode/
+.idea/
+
+# Environment
+.env
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# SQLite database
+*.db
+data/

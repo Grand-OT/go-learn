@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"todo-api/internal/http/config"
+	"todo-api/internal/config"
 )
 
 func helloMessage(w http.ResponseWriter, r *http.Request) {
@@ -25,12 +25,16 @@ type HealthResponse struct {
 
 func healthz(w http.ResponseWriter, t *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store") // не кэшировать
 	w.WriteHeader(http.StatusOK)
 
-	json.NewEncoder(w).Encode(HealthResponse{
+	err := json.NewEncoder(w).Encode(HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func main() {

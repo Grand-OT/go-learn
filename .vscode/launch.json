@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Server (Go)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/server",
+      "cwd": "${workspaceFolder}",              // <-- РАБОЧАЯ ДИРЕКТОРИЯ = КОРЕНЬ
+      "env": {
+        "HTTP_PORT": "80",
+        "STATIC_DIR": "static"
+      }
+    }
+  ]
+}

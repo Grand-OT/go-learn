@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 	"todo-api/internal/config"
+	"todo-api/internal/todo"
 )
 
 func helloMessage(w http.ResponseWriter, r *http.Request) {
@@ -26,26 +28,31 @@ type HealthResponse struct {
 func healthz(w http.ResponseWriter, t *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store") // не кэшировать
-	w.WriteHeader(http.StatusOK)
 
-	err := json.NewEncoder(w).Encode(HealthResponse{
+	buf := bytes.Buffer{}
+	err := json.NewEncoder(&buf).Encode(HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	})
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+
+	_, _ = w.Write(buf.Bytes())
 }
 
 func main() {
 	cfg := config.Load()
 
 	fs := http.FileServer(http.Dir(cfg.StaticDir))
+	handler := todo.NewHandler(todo.NewInMemoryStore())
 
 	mux := http.NewServeMux()
 	mux.Handle("/static/", logging(http.StripPrefix("/static/", fs)))
 	mux.Handle("/", logging(http.HandlerFunc(helloMessage)))
 	mux.HandleFunc("/healthz", healthz)
+	mux.Handle("/api/v1/todos", logging(handler))
 
 	addr := cfg.Port
 	if !strings.HasPrefix(addr, ":") {
@@ -81,6 +88,7 @@ func main() {
 		log.Println("Forced shutdown: ", err)
 	}
 	log.Println("Server stopped")
+	signal.Stop(stop)
 }
 
 func logging(next http.Handler) http.Handler {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,12 +12,9 @@ import (
 	"syscall"
 	"time"
 	"todo-api/internal/config"
+	"todo-api/internal/middleware"
 	"todo-api/internal/todo"
 )
-
-func helloMessage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to my website")
-}
 
 type HealthResponse struct {
 	Status    string `json:"status"`
@@ -49,10 +45,10 @@ func main() {
 	handler := todo.NewHandler(todo.NewInMemoryStore())
 
 	mux := http.NewServeMux()
-	mux.Handle("/static/", logging(http.StripPrefix("/static/", fs)))
-	mux.Handle("/", logging(http.HandlerFunc(helloMessage)))
+	mux.Handle("/static/", middleware.Logging(http.StripPrefix("/static/", fs)))
+	mux.Handle("/", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
 	mux.HandleFunc("/healthz", healthz)
-	mux.Handle("/api/v1/todos", logging(handler))
+	mux.Handle("/api/v1/todos", middleware.Logging(handler))
 
 	addr := cfg.Port
 	if !strings.HasPrefix(addr, ":") {
@@ -89,50 +85,4 @@ func main() {
 	}
 	log.Println("Server stopped")
 	signal.Stop(stop)
-}
-
-func logging(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		lw := &logWriter{ResponseWriter: w, status: http.StatusOK}
-
-		next.ServeHTTP(lw, r)
-
-		d := time.Since(start)
-		log.Printf(" %s %s -> %d %dB (%s) UA=%q IP=%s",
-			r.Method,
-			r.URL.Path,
-			lw.status,
-			lw.bytes,
-			d,
-			r.UserAgent(),
-			clientIP(r),
-		)
-	})
-}
-
-type logWriter struct {
-	http.ResponseWriter
-	status int
-	bytes  int
-}
-
-func (w *logWriter) WriteHeader(code int) {
-	w.status = code
-	w.ResponseWriter.WriteHeader(code)
-}
-
-func (w *logWriter) Write(b []byte) (int, error) {
-	n, err := w.ResponseWriter.Write(b)
-	w.bytes += n
-	return n, err
-}
-
-func clientIP(r *http.Request) string {
-	// sended from proxy or balancer
-	if xf := r.Header.Get("X-Forwarded-For"); xf != "" {
-		return xf
-	}
-	return r.RemoteAddr
 }

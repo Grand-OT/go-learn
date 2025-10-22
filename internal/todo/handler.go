@@ -2,6 +2,7 @@ package todo
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -58,4 +59,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", http.MethodPost)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func HelloMessage(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Welcome to my website")
 }

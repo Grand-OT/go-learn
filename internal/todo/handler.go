@@ -99,6 +99,32 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
+func (h *Handler) RemoveById(w http.ResponseWriter, r *http.Request) {
+	scope := pkg.ScopeFrom(r)
+	if scope == nil || scope.Params == nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	}
+
+	idStr, ok := scope.Params["id"]
+	if !ok {
+		http.Error(w, "Id required", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Id required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.Remove(r.Context(), id); errors.Is(err, ErrNotFound) {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func HelloMessage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to my website")
 }

@@ -25,6 +25,7 @@ func NewInMemoryStore() *InMemoryStore {
 type Repository interface {
 	Create(ctx context.Context, t Todo) (Todo, error)
 	Get(ctx context.Context, id int64) (Todo, error)
+	Remove(ctx context.Context, id int64) error
 }
 
 func (s *InMemoryStore) Create(ctx context.Context, t Todo) (Todo, error) {
@@ -54,6 +55,18 @@ func (s *InMemoryStore) Get(ctx context.Context, id int64) (t Todo, err error) {
 		return Todo{}, ErrNotFound
 	}
 	return t, nil
+}
+
+func (s *InMemoryStore) Remove(ctx context.Context, id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, ok := s.items[id]
+	if !ok {
+		return ErrNotFound
+	}
+	delete(s.items, id)
+	return nil
 }
 
 func (s *InMemoryStore) Len() int {

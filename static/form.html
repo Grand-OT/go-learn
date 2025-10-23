@@ -1,0 +1,124 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Form Builder</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; }
+  form { display: grid; gap: 12px; }
+  label { display: grid; gap: 6px; }
+  input, textarea, select, button { padding: 8px; font: inherit; }
+  .row { display: grid; gap: 6px; }
+  .error { color: #b00; margin-top: 8px; }
+  pre { background: #f6f8fa; padding: 12px; overflow: auto; }
+</style>
+
+<h1>API Form</h1>
+<div class="row">
+  <details>
+    <summary>Конфиг формы (можно править прямо здесь)</summary>
+    <textarea id="cfg" rows="12" spellcheck="false"></textarea>
+  </details>
+</div>
+
+<form id="f"></form>
+<div id="out"></div>
+
+<script>
+  // Конфиг по умолчанию — создание todo
+  const defaultConfig = {
+    action: "/api/v1/todos",
+    method: "POST", // GET/POST/PATCH/DELETE
+    headers: { "Content-Type": "application/json" },
+    fields: [
+      { name: "title", label: "Title", type: "text", required: true },
+      { name: "description", label: "Description", type: "textarea" }
+    ],
+    // как собирать тело запроса из values (можно менять)
+    buildBody: (values) => JSON.stringify(values)
+  };
+
+  const cfgEl = document.getElementById("cfg");
+  const form = document.getElementById("f");
+  const out = document.getElementById("out");
+
+  cfgEl.value = JSON.stringify(defaultConfig, null, 2);
+
+  function render() {
+    out.innerHTML = "";
+    form.innerHTML = "";
+
+    let cfg;
+    try {
+      cfg = JSON.parse(cfgEl.value);
+    } catch (e) {
+      out.innerHTML = `<div class="error">Ошибка в конфиге: ${e.message}</div>`;
+      return;
+    }
+
+    // Рендерим поля
+    (cfg.fields || []).forEach(fld => {
+      const label = document.createElement("label");
+      label.textContent = fld.label || fld.name;
+
+      let input;
+      if (fld.type === "textarea") {
+        input = document.createElement("textarea");
+        input.rows = 4;
+      } else if (fld.type === "select") {
+        input = document.createElement("select");
+        (fld.options || []).forEach(opt => {
+          const o = document.createElement("option");
+          o.value = opt; o.textContent = opt;
+          if (String(opt) === String(fld.value)) o.selected = true;
+          input.appendChild(o);
+        });
+      } else {
+        input = document.createElement("input");
+        input.type = fld.type || "text";
+        if (fld.value != null) input.value = fld.value;
+      }
+      input.name = fld.name;
+      if (fld.required) input.required = true;
+      label.appendChild(input);
+      form.appendChild(label);
+    });
+
+    // Кнопки
+    const btn = document.createElement("button");
+    btn.type = "submit";
+    btn.textContent = "Send";
+    form.appendChild(btn);
+
+    const method = cfg.method || "GET";
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      out.textContent = "…";
+      const values = {};
+      (cfg.fields || []).forEach(fld => {
+        const el = form.querySelector(`[name="${CSS.escape(fld.name)}"]`);
+        values[fld.name] = el ? el.value : undefined;
+      });
+
+      // простой пример нормализации даты (date → ISO yyyy-mm-dd)
+      if ("due_date" in values && values.due_date === "") delete values.due_date;
+
+      const body = (typeof cfg.buildBody === "function")
+        ? eval(`(${cfg.buildBody})`)(values) // допускаем inline-функцию из конфига
+        : JSON.stringify(values);
+
+      try {
+        const resp = await fetch(cfg.action, {
+          method,
+          headers: cfg.headers || { "Content-Type": "application/json" },
+          body: method === "GET" || method === "DELETE" ? undefined : body
+        });
+        const text = await resp.text();
+        out.innerHTML = `<div>Status: ${resp.status}</div><pre>${text}</pre>`;
+      } catch (err) {
+        out.innerHTML = `<div class="error">Network error: ${err.message}</div>`;
+      }
+    };
+  }
+
+  render();
+  cfgEl.addEventListener("input", () => { render(); });
+</script>

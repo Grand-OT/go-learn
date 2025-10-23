@@ -47,6 +47,10 @@ func main() {
 	handler := todo.NewHandler(todo.NewInMemoryStore())
 
 	mux := &router.Router{}
+	mux.Handle(http.MethodGet, "/ui", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		http.ServeFile(w, r, "static/form.html")
+	}))
 	mux.Handle("GET", "/static", middleware.Logging(http.StripPrefix("/static/", fs)))
 	mux.Handle("GET", "", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
 	mux.Handle("GET", "/healthz", http.HandlerFunc(healthz))

@@ -31,6 +31,17 @@ func TestMatch_DifferentLengthMeansNoMatch(t *testing.T) {
 	}
 }
 
+func TestMatch_RootPath(t *testing.T) {
+	ok, _, err := Match("/", "/")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !ok {
+		t.Fatal("expected match")
+	}
+}
+
 func TestMatch_ParamCaptured(t *testing.T) {
 	ok, parts, err := Match("/abc/:id", "/abc/123")
 	if err != nil {

@@ -12,7 +12,8 @@ import (
 	"syscall"
 	"time"
 	"todo-api/internal/config"
-	"todo-api/internal/middleware"
+	"todo-api/internal/http/middleware"
+	"todo-api/internal/http/router"
 	"todo-api/internal/todo"
 )
 
@@ -35,6 +36,7 @@ func healthz(w http.ResponseWriter, t *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(buf.Bytes())
 }
 
@@ -44,11 +46,17 @@ func main() {
 	fs := http.FileServer(http.Dir(cfg.StaticDir))
 	handler := todo.NewHandler(todo.NewInMemoryStore())
 
-	mux := http.NewServeMux()
-	mux.Handle("/static/", middleware.Logging(http.StripPrefix("/static/", fs)))
-	mux.Handle("/", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
-	mux.HandleFunc("/healthz", healthz)
-	mux.Handle("/api/v1/todos", middleware.Logging(handler))
+	mux := &router.Router{}
+	mux.Handle("GET", "/static", middleware.Logging(http.StripPrefix("/static/", fs)))
+	mux.Handle("GET", "", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
+	mux.Handle("GET", "/healthz", http.HandlerFunc(healthz))
+	mux.Group("/api/v1", func(api *router.Router) {
+		api.Use(middleware.Logging)
+		api.Group("todos", func(todos *router.Router) {
+			todos.Handle("POST", "", http.HandlerFunc(handler.Create))
+			todos.Handle("GET", ":id", http.HandlerFunc(handler.GetByID))
+		})
+	})
 
 	addr := cfg.Port
 	if !strings.HasPrefix(addr, ":") {

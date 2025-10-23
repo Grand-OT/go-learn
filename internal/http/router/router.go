@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"strings"
+	"todo-api/internal/http/middleware"
 	"todo-api/internal/http/path"
 	"todo-api/internal/pkg"
 )
@@ -34,9 +35,33 @@ func areRoutesEqual(r1, r2 Route) bool {
 
 type Router struct {
 	routes []Route
+	base   string
+	mws    []middleware.Middleware
+}
+
+func joinPath(a, b string) string {
+	return "/" + strings.TrimSuffix(strings.TrimPrefix(a, "/"), "/") +
+		"/" + strings.TrimPrefix(b, "/")
+}
+
+func (router *Router) Group(path string, fn func(*Router)) {
+	child := &Router{
+		routes: router.routes,
+		base:   joinPath(router.base, path),
+		mws:    append([]middleware.Middleware{}, router.mws...),
+	}
+	fn(child)
+
+	router.routes = child.routes
+}
+
+func (router *Router) Use(mws ...middleware.Middleware) {
+	router.mws = append(router.mws, mws...)
 }
 
 func (router *Router) Handle(method, pattern string, h http.Handler) {
+	pattern = joinPath(router.base, pattern)
+	h = middleware.Chain(router.mws...)(h)
 	sb := strings.Builder{}
 	sb.WriteByte('/')
 	sb.WriteString(strings.Trim(strings.TrimSpace(pattern), "/"))
@@ -64,7 +89,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, route := range router.routes {
 		ok, vals, err := path.Match(route.Pattern, r.URL.EscapedPath())
 		if err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if ok {

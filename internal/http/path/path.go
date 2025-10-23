@@ -25,7 +25,7 @@ func Match(pattern, path string) (ok bool, params map[string]string, err error) 
 		return false, nil, ErrInvalidPattern
 	}
 
-	if pattern[len(pattern)-1] == '/' {
+	if pattern[len(pattern)-1] == '/' && len(pattern) != 1 {
 		return false, nil, ErrInvalidPattern
 	}
 
@@ -37,7 +37,7 @@ func Match(pattern, path string) (ok bool, params map[string]string, err error) 
 		return false, nil, ErrInvalidPath
 	}
 
-	if path[len(path)-1] == '/' {
+	if path[len(path)-1] == '/' && len(path) != 1 {
 		return false, nil, ErrInvalidPath
 	}
 

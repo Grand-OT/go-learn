@@ -1,9 +1,13 @@
 package todo
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"todo-api/internal/pkg"
 )
 
 type TodoCreateRequest struct {
@@ -19,7 +23,7 @@ func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 
-func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	var in TodoCreateRequest
@@ -51,14 +55,48 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(ToDTO(out))
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		h.create(w, r)
-	default:
-		w.Header().Set("Allow", http.MethodPost)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
+	scope := pkg.ScopeFrom(r)
+	if scope == nil {
+		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
+		return
 	}
+
+	idStr, ok := scope.Params["id"]
+	if !ok {
+		http.Error(w, "Id required", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Incorrect id", http.StatusBadRequest)
+		return
+	}
+	if id < 0 {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	todo, err := h.repo.Get(r.Context(), id)
+	if errors.Is(err, ErrNotFound) {
+		http.Error(w, "Item not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Storeage error", http.StatusInternalServerError)
+		return
+	}
+
+	buf := bytes.Buffer{}
+	err = json.NewEncoder(&buf).Encode(ToDTO(todo))
+
+	if err != nil {
+		http.Error(w, "Encoding error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(buf.Bytes())
 }
 
 func HelloMessage(w http.ResponseWriter, r *http.Request) {

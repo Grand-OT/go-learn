@@ -2,10 +2,13 @@ package todo
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
 )
+
+var ErrNotFound = errors.New("not found")
 
 type InMemoryStore struct {
 	mu     sync.RWMutex
@@ -21,6 +24,7 @@ func NewInMemoryStore() *InMemoryStore {
 
 type Repository interface {
 	Create(ctx context.Context, t Todo) (Todo, error)
+	Get(ctx context.Context, id int64) (Todo, error)
 }
 
 func (s *InMemoryStore) Create(ctx context.Context, t Todo) (Todo, error) {
@@ -38,6 +42,17 @@ func (s *InMemoryStore) Create(ctx context.Context, t Todo) (Todo, error) {
 	t.CreatedAt = curTime
 	t.UpdatedAt = curTime
 	s.items[s.lastID] = t
+	return t, nil
+}
+
+func (s *InMemoryStore) Get(ctx context.Context, id int64) (t Todo, err error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	t, ok := s.items[id]
+	if !ok {
+		return Todo{}, ErrNotFound
+	}
 	return t, nil
 }
 

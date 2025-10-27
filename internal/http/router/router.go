@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"strings"
+	httpx "todo-api/internal/http"
 	"todo-api/internal/http/middleware"
 	"todo-api/internal/http/path"
 	"todo-api/internal/pkg"
@@ -89,7 +90,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, route := range router.routes {
 		ok, vals, err := path.Match(route.Pattern, r.URL.EscapedPath())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			httpx.WriteError(w, http.StatusBadRequest, "invalid_path", "unable to handle path")
 			return
 		}
 		if ok {
@@ -106,9 +107,9 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(allow) > 0 {
 		w.Header().Set("Allow", strings.Join(allow, ", "))
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		httpx.WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "requested method not allowed")
 		return
 	}
 
-	http.NotFound(w, r)
+	httpx.WriteError(w, http.StatusNotFound, "path_not_found", "requested path not found")
 }

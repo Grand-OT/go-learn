@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	httpx "todo-api/internal/http"
 	"todo-api/internal/pkg"
 )
 
@@ -30,12 +31,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB
 	if err := dec.Decode(&in); err != nil {
-		http.Error(w, "Invalid json", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "unable to process json")
 		return
 	}
 
 	if err := validate(&in); err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		httpx.WriteError(w, http.StatusUnprocessableEntity, "invalid_content", "unable to handle data")
 		return
 	}
 
@@ -46,7 +47,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	out, err := h.repo.Create(r.Context(), t)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "storage_error", "internal server error")
 		return
 	}
 
@@ -58,32 +59,32 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	scope := pkg.ScopeFrom(r)
 	if scope == nil {
-		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_parameters", "invalid request parameters")
 		return
 	}
 
 	idStr, ok := scope.Params["id"]
 	if !ok {
-		http.Error(w, "Id required", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_id", "unable to get id")
 		return
 	}
 
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Incorrect id", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_id", "invalid todo id")
 		return
 	}
 	if id < 0 {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_id", "non-negative id required")
 		return
 	}
 
 	todo, err := h.repo.Get(r.Context(), id)
 	if errors.Is(err, ErrNotFound) {
-		http.Error(w, "Item not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "todo_not_found", "todo not found")
 		return
 	} else if err != nil {
-		http.Error(w, "Storeage error", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "storage_error", "internal server error")
 		return
 	}
 
@@ -91,7 +92,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(&buf).Encode(ToDTO(todo))
 
 	if err != nil {
-		http.Error(w, "Encoding error", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "encoding_error", "internal server error")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -102,23 +103,24 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) RemoveById(w http.ResponseWriter, r *http.Request) {
 	scope := pkg.ScopeFrom(r)
 	if scope == nil || scope.Params == nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_parameters", "invalid_request_parameters")
+		return
 	}
 
 	idStr, ok := scope.Params["id"]
 	if !ok {
-		http.Error(w, "Id required", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "id_required", "unable to get id")
 		return
 	}
 
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Id required", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_id", "invalid todo id")
 		return
 	}
 
 	if err := h.repo.Remove(r.Context(), id); errors.Is(err, ErrNotFound) {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "todo_not_found", "todo not found")
 		return
 	}
 

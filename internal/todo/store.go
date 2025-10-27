@@ -10,6 +10,10 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+func Ping(ctx context.Context) error {
+	return nil
+}
+
 type InMemoryStore struct {
 	mu     sync.RWMutex
 	items  map[int64]Todo

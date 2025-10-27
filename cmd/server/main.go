@@ -40,6 +40,19 @@ func healthz(w http.ResponseWriter, t *http.Request) {
 	_, _ = w.Write(buf.Bytes())
 }
 
+func readyz(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+	defer cancel()
+
+	if err := todo.Ping(ctx); err != nil {
+		http.Error(w, "storage not ready", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ready"}`))
+}
+
 func main() {
 	cfg := config.Load()
 
@@ -51,14 +64,16 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		http.ServeFile(w, r, "static/form.html")
 	}))
-	mux.Handle("GET", "/static", middleware.Logging(http.StripPrefix("/static/", fs)))
-	mux.Handle("GET", "", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
-	mux.Handle("GET", "/healthz", http.HandlerFunc(healthz))
+	mux.Handle(http.MethodGet, "/static", middleware.Logging(http.StripPrefix("/static/", fs)))
+	mux.Handle(http.MethodGet, "", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
+	mux.Handle(http.MethodGet, "/healthz", http.HandlerFunc(healthz))
+	mux.Handle(http.MethodGet, "/readyz", http.HandlerFunc(readyz))
 	mux.Group("/api/v1", func(api *router.Router) {
 		api.Use(middleware.Logging)
 		api.Group("todos", func(todos *router.Router) {
-			todos.Handle("POST", "", http.HandlerFunc(handler.Create))
-			todos.Handle("GET", ":id", http.HandlerFunc(handler.GetByID))
+			todos.Handle(http.MethodPost, "", http.HandlerFunc(handler.Create))
+			todos.Handle(http.MethodGet, ":id", http.HandlerFunc(handler.GetByID))
+			todos.Handle(http.MethodDelete, ":id", http.HandlerFunc(handler.RemoveById))
 		})
 	})
 

@@ -10,10 +10,11 @@ import (
 	"testing"
 	"todo-api/internal/pkg"
 	"todo-api/internal/todo"
+	"todo-api/internal/todo/storagemem"
 )
 
 func TestCreateTodo_OK(t *testing.T) {
-	store := todo.NewInMemoryStore()
+	store := storagemem.NewInMemoryStore()
 	h := todo.NewHandler(store)
 
 	body := bytes.NewBufferString(`{"title":"Buy milk","description":"2L"}`)
@@ -41,7 +42,7 @@ func TestCreateTodo_OK(t *testing.T) {
 }
 
 func TestCreateTodo_EmptyDescr_OK(t *testing.T) {
-	store := todo.NewInMemoryStore()
+	store := storagemem.NewInMemoryStore()
 	h := todo.NewHandler(store)
 
 	body := bytes.NewBufferString(`{"title":"Buy milk"}`)
@@ -69,7 +70,7 @@ func TestCreateTodo_EmptyDescr_OK(t *testing.T) {
 }
 
 func TestCreate_UnknownField_400(t *testing.T) {
-	store := todo.NewInMemoryStore()
+	store := storagemem.NewInMemoryStore()
 	h := todo.NewHandler(store)
 
 	body := bytes.NewBufferString(`{"title":"Buy milk","description":"2L","unknown_field":"boom"}`)
@@ -85,7 +86,7 @@ func TestCreate_UnknownField_400(t *testing.T) {
 }
 
 func TestCreateTodo_Validation_422(t *testing.T) {
-	store := todo.NewInMemoryStore()
+	store := storagemem.NewInMemoryStore()
 	h := todo.NewHandler(store)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/todos",
@@ -101,7 +102,7 @@ func TestCreateTodo_Validation_422(t *testing.T) {
 }
 
 func TestGetTodo_NoItem_404(t *testing.T) {
-	store := todo.NewInMemoryStore()
+	store := storagemem.NewInMemoryStore()
 	h := todo.NewHandler(store)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/todos/123", nil)
@@ -120,7 +121,7 @@ func TestGetTodo_NoItem_404(t *testing.T) {
 
 func TestGetTodo_SetGet_OK(t *testing.T) {
 
-	store := todo.NewInMemoryStore()
+	store := storagemem.NewInMemoryStore()
 	h := todo.NewHandler(store)
 
 	body := bytes.NewBufferString(`{"title":"Buy milk","description":"2L"}`)

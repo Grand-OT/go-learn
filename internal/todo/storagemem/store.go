@@ -1,14 +1,12 @@
-package todo
+package storagemem
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 	"time"
+	"todo-api/internal/todo"
 )
-
-var ErrNotFound = errors.New("not found")
 
 func Ping(ctx context.Context) error {
 	return nil
@@ -16,30 +14,24 @@ func Ping(ctx context.Context) error {
 
 type InMemoryStore struct {
 	mu     sync.RWMutex
-	items  map[int64]Todo
+	items  map[int64]todo.Todo
 	lastID int64
 }
 
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		items:  make(map[int64]Todo),
+		items:  make(map[int64]todo.Todo),
 		lastID: 0}
 }
 
-type Repository interface {
-	Create(ctx context.Context, t Todo) (Todo, error)
-	Get(ctx context.Context, id int64) (Todo, error)
-	Remove(ctx context.Context, id int64) error
-}
-
-func (s *InMemoryStore) Create(ctx context.Context, t Todo) (Todo, error) {
+func (s *InMemoryStore) Create(ctx context.Context, t todo.Todo) (todo.Todo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.lastID++
 	t.ID = s.lastID
 	if strings.TrimSpace(t.Status) == "" {
-		t.Status = StatusPending
+		t.Status = todo.StatusPending
 	} else {
 		t.Status = strings.ToLower(t.Status)
 	}
@@ -50,13 +42,13 @@ func (s *InMemoryStore) Create(ctx context.Context, t Todo) (Todo, error) {
 	return t, nil
 }
 
-func (s *InMemoryStore) Get(ctx context.Context, id int64) (t Todo, err error) {
+func (s *InMemoryStore) Get(ctx context.Context, id int64) (t todo.Todo, err error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	t, ok := s.items[id]
 	if !ok {
-		return Todo{}, ErrNotFound
+		return todo.Todo{}, todo.ErrNotFound
 	}
 	return t, nil
 }
@@ -67,7 +59,7 @@ func (s *InMemoryStore) Remove(ctx context.Context, id int64) error {
 
 	_, ok := s.items[id]
 	if !ok {
-		return ErrNotFound
+		return todo.ErrNotFound
 	}
 	delete(s.items, id)
 	return nil
@@ -80,11 +72,11 @@ func (s *InMemoryStore) Len() int {
 	return len(s.items)
 }
 
-func (s *InMemoryStore) Snapshot() map[int64]Todo {
+func (s *InMemoryStore) Snapshot() map[int64]todo.Todo {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	cp := make(map[int64]Todo, len(s.items))
+	cp := make(map[int64]todo.Todo, len(s.items))
 	for k, v := range s.items {
 		cp[k] = v
 	}

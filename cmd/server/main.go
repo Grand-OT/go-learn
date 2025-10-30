@@ -15,6 +15,7 @@ import (
 	"todo-api/internal/http/middleware"
 	"todo-api/internal/http/router"
 	"todo-api/internal/todo"
+	"todo-api/internal/todo/storagemem"
 )
 
 type HealthResponse struct {
@@ -44,7 +45,7 @@ func readyz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
 	defer cancel()
 
-	if err := todo.Ping(ctx); err != nil {
+	if err := storagemem.Ping(ctx); err != nil {
 		http.Error(w, "storage not ready", http.StatusServiceUnavailable)
 		return
 	}
@@ -57,7 +58,7 @@ func main() {
 	cfg := config.Load()
 
 	fs := http.FileServer(http.Dir(cfg.StaticDir))
-	handler := todo.NewHandler(todo.NewInMemoryStore())
+	handler := todo.NewHandler(storagemem.NewInMemoryStore())
 
 	mux := &router.Router{}
 	mux.Handle(http.MethodGet, "/ui", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

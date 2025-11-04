@@ -41,11 +41,15 @@ func healthz(w http.ResponseWriter, t *http.Request) {
 	_, _ = w.Write(buf.Bytes())
 }
 
-func readyz(w http.ResponseWriter, r *http.Request) {
+type ReadyHandler struct {
+	Repo todo.Repository
+}
+
+func (h ReadyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
 	defer cancel()
 
-	if err := storagemem.Ping(ctx); err != nil {
+	if err := h.Repo.Ping(ctx); err != nil {
 		http.Error(w, "storage not ready", http.StatusServiceUnavailable)
 		return
 	}
@@ -58,7 +62,9 @@ func main() {
 	cfg := config.Load()
 
 	fs := http.FileServer(http.Dir(cfg.StaticDir))
-	handler := todo.NewHandler(storagemem.NewInMemoryStore())
+	var repo todo.Repository = storagemem.NewInMemoryStore()
+	handler := todo.NewHandler(repo)
+	readyHandler := ReadyHandler{repo}
 
 	mux := &router.Router{}
 	mux.Handle(http.MethodGet, "/ui", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +74,7 @@ func main() {
 	mux.Handle(http.MethodGet, "/static", middleware.Logging(http.StripPrefix("/static/", fs)))
 	mux.Handle(http.MethodGet, "", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
 	mux.Handle(http.MethodGet, "/healthz", http.HandlerFunc(healthz))
-	mux.Handle(http.MethodGet, "/readyz", http.HandlerFunc(readyz))
+	mux.Handle(http.MethodGet, "/readyz", readyHandler)
 	mux.Group("/api/v1", func(api *router.Router) {
 		api.Use(middleware.Logging)
 		api.Group("todos", func(todos *router.Router) {

@@ -8,15 +8,18 @@ import (
 	"todo-api/internal/todo"
 )
 
-func Ping(ctx context.Context) error {
-	return nil
-}
-
 type InMemoryStore struct {
 	mu     sync.RWMutex
 	items  map[int64]todo.Todo
 	lastID int64
 }
+
+// Ping implements todo.Repository.
+func (s *InMemoryStore) Ping(ctx context.Context) error {
+	return nil
+}
+
+var _ todo.Repository = (*InMemoryStore)(nil)
 
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{

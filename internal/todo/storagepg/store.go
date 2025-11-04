@@ -3,6 +3,7 @@ package storagepg
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 	"todo-api/internal/todo"
@@ -45,12 +46,57 @@ func (p *PostgresStore) Create(ctx context.Context, t todo.Todo) (todo.Todo, err
 
 // Get implements todo.Repository.
 func (p *PostgresStore) Get(ctx context.Context, id int64) (todo.Todo, error) {
-	panic("unimplemented")
+	if id <= 0 {
+		return todo.Todo{}, todo.ErrNotFound
+	}
+
+	res := todo.Todo{}
+	err := p.db.QueryRowContext(ctx, `
+	SELECT id, title, description, status, created_at, updated_at 
+	FROM todos 
+	WHERE id = $1
+	`, id).Scan(
+		&res.ID,
+		&res.Title,
+		&res.Description,
+		&res.Status,
+		&res.CreatedAt,
+		&res.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return todo.Todo{}, todo.ErrNotFound
+		}
+		return todo.Todo{}, err
+	}
+
+	return res, nil
 }
 
 // Remove implements todo.Repository.
 func (p *PostgresStore) Remove(ctx context.Context, id int64) error {
-	panic("unimplemented")
+	if id <= 0 {
+		return todo.ErrNotFound
+	}
+
+	res, err := p.db.ExecContext(ctx, `
+	DELETE FROM todos 
+	WHERE id = $1
+	`, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return todo.ErrNotFound
+	}
+	return nil
 }
 
 var _ todo.Repository = (*PostgresStore)(nil)

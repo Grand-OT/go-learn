@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -12,11 +13,15 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"todo-api/internal/config"
 	"todo-api/internal/http/middleware"
 	"todo-api/internal/http/router"
 	"todo-api/internal/todo"
 	"todo-api/internal/todo/storagemem"
+	"todo-api/internal/todo/storagepg"
 )
 
 type HealthResponse struct {
@@ -63,8 +68,16 @@ func (h ReadyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	cfg := config.Load()
-
-	var repo todo.Repository = storagemem.NewInMemoryStore()
+	var repo todo.Repository
+	if cfg.RepoType == "postgres" {
+		db, err := sql.Open("pgx", cfg.DSN())
+		if err != nil {
+			log.Fatal(err)
+		}
+		repo = storagepg.New(db)
+	} else {
+		repo = storagemem.NewInMemoryStore()
+	}
 	handler := todo.NewHandler(repo)
 	readyHandler := ReadyHandler{repo}
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 	"syscall"
 	"time"
@@ -35,6 +36,7 @@ func healthz(w http.ResponseWriter, t *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -54,6 +56,7 @@ func (h ReadyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"ready"}`))
 }
@@ -61,17 +64,19 @@ func (h ReadyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
 	cfg := config.Load()
 
-	fs := http.FileServer(http.Dir(cfg.StaticDir))
 	var repo todo.Repository = storagemem.NewInMemoryStore()
 	handler := todo.NewHandler(repo)
 	readyHandler := ReadyHandler{repo}
 
+	fs := http.FileServer(http.Dir(cfg.StaticDir))
+	http.Handle("/static/", middleware.Logging(http.StripPrefix("/static/", fs)))
+
 	mux := &router.Router{}
 	mux.Handle(http.MethodGet, "/ui", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		http.ServeFile(w, r, "static/form.html")
+		http.ServeFile(w, r, path.Join(cfg.StaticDir, "form.html"))
 	}))
-	mux.Handle(http.MethodGet, "/static", middleware.Logging(http.StripPrefix("/static/", fs)))
+
 	mux.Handle(http.MethodGet, "", middleware.Logging(http.HandlerFunc(todo.HelloMessage)))
 	mux.Handle(http.MethodGet, "/healthz", http.HandlerFunc(healthz))
 	mux.Handle(http.MethodGet, "/readyz", readyHandler)

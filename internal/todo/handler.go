@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	httpx "todo-api/internal/http"
@@ -25,14 +26,30 @@ func NewHandler(repo Repository) *Handler {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB
+
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	var in TodoCreateRequest
 
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB
+	if r.Header.Get("Content-Type") != "application/json" {
+		httpx.WriteError(w,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"expect application/json")
+	}
+
 	if err := dec.Decode(&in); err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "unable to process json")
 		return
+	}
+
+	if dec.Decode(&struct{}{}) != io.EOF {
+		httpx.WriteError(w,
+			http.StatusBadRequest,
+			"invalid_json",
+			"multiple json values")
 	}
 
 	if err := validate(&in); err != nil {
@@ -74,8 +91,8 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_id", "invalid todo id")
 		return
 	}
-	if id < 0 {
-		httpx.WriteError(w, http.StatusBadRequest, "invalid_id", "non-negative id required")
+	if id <= 0 {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_id", "positive id required")
 		return
 	}
 
@@ -122,6 +139,11 @@ func (h *Handler) RemoveById(w http.ResponseWriter, r *http.Request) {
 	if err := h.repo.Remove(r.Context(), id); errors.Is(err, ErrNotFound) {
 		httpx.WriteError(w, http.StatusNotFound, "todo_not_found", "todo not found")
 		return
+	} else if err != nil {
+		httpx.WriteError(w,
+			http.StatusInternalServerError,
+			"storage_error",
+			http.StatusText(http.StatusInternalServerError))
 	}
 
 	w.WriteHeader(http.StatusOK)

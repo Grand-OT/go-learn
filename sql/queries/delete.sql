@@ -1,2 +1,2 @@
 DELETE FROM todos 
-WHERE id = 2
+WHERE id = 2;

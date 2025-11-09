@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"todo-api/internal/todo"
 )
 
 func TestCreation(t *testing.T) {
@@ -20,7 +21,7 @@ func TestCreationTodo(t *testing.T) {
 
 	store := NewInMemoryStore()
 
-	todo := Todo{Title: "title"}
+	todo := todo.Todo{Title: "title"}
 
 	todoOut, err := store.Create(context.Background(), todo)
 	if err != nil {
@@ -45,7 +46,7 @@ func TestCreateGet_OK(t *testing.T) {
 
 	store := NewInMemoryStore()
 
-	todo := Todo{Title: "title"}
+	todo := todo.Todo{Title: "title"}
 
 	todoOut, err := store.Create(context.Background(), todo)
 	if err != nil {
@@ -77,9 +78,9 @@ func TestCreateGetAnother_NotFound(t *testing.T) {
 
 	store := NewInMemoryStore()
 
-	todo := Todo{Title: "title"}
+	todoStr := todo.Todo{Title: "title"}
 
-	todoOut, err := store.Create(context.Background(), todo)
+	todoOut, err := store.Create(context.Background(), todoStr)
 	if err != nil {
 		t.Errorf("%s: expected no err, obtained %s", testName, err)
 	}
@@ -91,7 +92,7 @@ func TestCreateGetAnother_NotFound(t *testing.T) {
 
 	_, err = store.Get(context.Background(), todoOut.ID+1)
 	if err == nil {
-		t.Fatalf("expected error: %q", ErrNotFound)
+		t.Fatalf("expected error: %q", todo.ErrNotFound)
 	}
 }
 
@@ -101,9 +102,9 @@ func TestCreateDeleteAnotherGet_NotFound(t *testing.T) {
 
 	store := NewInMemoryStore()
 
-	todo := Todo{Title: "title"}
+	todoStr := todo.Todo{Title: "title"}
 
-	todoOut, err := store.Create(context.Background(), todo)
+	todoOut, err := store.Create(context.Background(), todoStr)
 	if err != nil {
 		t.Errorf("%s: expected no err, obtained %s", testName, err)
 	}
@@ -114,8 +115,8 @@ func TestCreateDeleteAnotherGet_NotFound(t *testing.T) {
 	}
 
 	err = store.Remove(context.Background(), todoOut.ID+1)
-	if errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected error: %q", ErrNotFound)
+	if errors.Is(err, todo.ErrNotFound) {
+		t.Fatalf("expected error: %q", todo.ErrNotFound)
 	}
 
 	todoGet, err := store.Get(context.Background(), todoOut.ID)
@@ -134,9 +135,9 @@ func TestCreateDeleteGet_NotFound(t *testing.T) {
 
 	store := NewInMemoryStore()
 
-	todo := Todo{Title: "title"}
+	todoStr := todo.Todo{Title: "title"}
 
-	todoOut, err := store.Create(context.Background(), todo)
+	todoOut, err := store.Create(context.Background(), todoStr)
 	if err != nil {
 		t.Errorf("%s: expected no err, obtained %s", testName, err)
 	}
@@ -152,8 +153,8 @@ func TestCreateDeleteGet_NotFound(t *testing.T) {
 	}
 
 	_, err = store.Get(context.Background(), todoOut.ID)
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected error: %q", ErrNotFound)
+	if !errors.Is(err, todo.ErrNotFound) {
+		t.Fatalf("expected error: %q", todo.ErrNotFound)
 	}
 }
 
@@ -163,9 +164,9 @@ func TestCreateDeleteGetAnother_OK(t *testing.T) {
 
 	store := NewInMemoryStore()
 
-	todo := Todo{Title: "title"}
+	todoStr := todo.Todo{Title: "title"}
 
-	todoOut, err := store.Create(context.Background(), todo)
+	todoOut, err := store.Create(context.Background(), todoStr)
 	if err != nil {
 		t.Errorf("%s: expected no err, obtained %s", testName, err)
 	}
@@ -181,8 +182,8 @@ func TestCreateDeleteGetAnother_OK(t *testing.T) {
 	}
 
 	_, err = store.Get(context.Background(), todoOut.ID)
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected error: %q", ErrNotFound)
+	if !errors.Is(err, todo.ErrNotFound) {
+		t.Fatalf("expected error: %q", todo.ErrNotFound)
 	}
 }
 
@@ -197,8 +198,8 @@ func TestConcurrent(t *testing.T) {
 
 		wg.Add(1)
 		go func() {
-			todo := Todo{}
-			store.Create(context.Background(), todo)
+			todoStr := todo.Todo{}
+			store.Create(context.Background(), todoStr)
 			wg.Done()
 		}()
 	}
